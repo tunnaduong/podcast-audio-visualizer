@@ -5,29 +5,40 @@ const AudioVisualizer = () => {
   const audioRef = useRef(null);
   const audioSourceRef = useRef(null);
   const animationIdRef = useRef(null);
+  const audioCtxRef = useRef(null);
 
   const handleStart = async () => {
     const audioElement = audioRef.current;
 
-    // 💡 Tạo AudioContext tại thời điểm user click
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // 🔁 Nếu AudioContext đã có, dùng lại
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext ||
+        window.webkitAudioContext)();
+    }
+
+    const audioCtx = audioCtxRef.current;
+
+    // ✅ Reset audio (tua về đầu & tạm dừng)
+    audioElement.pause();
+    audioElement.currentTime = 0;
+
     const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64;
+    analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.85;
 
-    // 1. Mic
+    // 1. MIC
     const micStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
     });
     const micSource = audioCtx.createMediaStreamSource(micStream);
 
-    // 2. Audio file (intro)
+    // 2. AUDIO
     if (!audioSourceRef.current) {
       audioSourceRef.current = audioCtx.createMediaElementSource(audioElement);
     }
     const audioSource = audioSourceRef.current;
 
-    // 3. Merger
+    // 3. MERGE
     const merger = audioCtx.createChannelMerger(2);
     micSource.connect(merger, 0, 0);
     audioSource.connect(merger, 0, 0);
@@ -36,10 +47,10 @@ const AudioVisualizer = () => {
     // 4. Chỉ phát nhạc (mic không ra loa)
     audioSource.connect(audioCtx.destination);
 
-    // 🔊 Phát intro
+    // ✅ Play lại intro từ đầu
     await audioElement.play();
 
-    // 5. Visualize
+    // 5. VẼ WAVEFORM
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     const canvas = canvasRef.current;
@@ -55,11 +66,10 @@ const AudioVisualizer = () => {
       const HEIGHT = canvas.height;
       const centerX = WIDTH / 2;
       const centerY = HEIGHT / 2;
-
       const barCount = dataArray.length;
       const halfCount = Math.floor(barCount / 2);
       const barWidth = WIDTH / barCount;
-      const barW = barWidth * 0.3;
+      const barW = barWidth * 0.2;
       const spacing = barWidth * 0.1;
 
       ctx.fillStyle = "#333";
@@ -105,18 +115,16 @@ const AudioVisualizer = () => {
         🎧 Bắt đầu Podcast
       </button>
 
-      {/* Nhạc intro */}
       <audio
         ref={audioRef}
         src="/intro.mp3"
-        preload="none" // ❗ QUAN TRỌNG: không preload
+        preload="auto"
         style={{ display: "none" }}
       />
 
-      {/* Waveform */}
       <canvas
         ref={canvasRef}
-        width="400"
+        width="600"
         height="100"
         style={{
           backgroundColor: "transparent",
