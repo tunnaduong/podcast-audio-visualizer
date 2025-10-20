@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 
-const AudioVisualizer = ({ onStart }) => {
+const AudioVisualizer = ({ onStart, audio }) => {
   const [bgVolume, setBgVolume] = useState(35); // 👈 mặc định âm lượng nhạc nền
   const [isBGPlaying, setIsBGPlaying] = useState(false);
   const [countdown, setCountdown] = useState(null);
@@ -284,7 +284,7 @@ const AudioVisualizer = ({ onStart }) => {
       />
       <audio
         ref={introRef}
-        src="/intro.mp3"
+        src={audio}
         preload="auto"
         style={{ display: "none" }}
       />

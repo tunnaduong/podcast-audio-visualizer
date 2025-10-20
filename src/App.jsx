@@ -1,6 +1,14 @@
 import React from "react";
 import AudioVisualizer from "./components/AudioVisualizer";
 
+const PODCAST = {
+  title: "Chuyện quán quen",
+  description: "Vài mẩu chuyện linh tinh sau khi tốt nghiệp",
+  image: "/cqq/cover.jpg",
+  audio: "/cqq/podcast1.mp3",
+  episode: 1,
+};
+
 function App() {
   const [elapsedTime, setElapsedTime] = React.useState(0);
   const timerRef = React.useRef(null);
@@ -51,7 +59,7 @@ function App() {
               fontSize: 20,
             }}
           >
-            EPISODE 1
+            EPISODE {PODCAST.episode}
           </p>
           {/* ⏱️ Hiển thị đồng hồ */}
           <div
@@ -72,7 +80,7 @@ function App() {
 
         {/* Center: Waveform */}
         <div style={{ flex: 2, textAlign: "center" }}>
-          <AudioVisualizer onStart={handleStartPodcast} />
+          <AudioVisualizer audio={PODCAST.audio} onStart={handleStartPodcast} />
         </div>
 
         {/* Right: Podcast info + image */}
@@ -84,10 +92,11 @@ function App() {
             gap: "20px",
             justifyContent: "flex-end",
             flexDirection: "column",
+            width: "100%",
           }}
         >
           <img
-            src="/laptrinh.jpg"
+            src={PODCAST.image}
             alt="Podcast"
             style={{
               width: "230px",
@@ -101,10 +110,10 @@ function App() {
               PODCAST SERIES
             </p>
             <h3 style={{ margin: 0, fontSize: 40, marginTop: -10 }}>
-              Gác nhỏ của Tùng.
+              {PODCAST.title}
             </h3>
             <p style={{ fontSize: 19, color: "#aaa", margin: 0 }}>
-              Hành trình đi tìm đam mê vĩ đại của loài người (Phần 1)
+              {PODCAST.description}
             </p>
           </div>
         </div>
