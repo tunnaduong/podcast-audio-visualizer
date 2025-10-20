@@ -1,40 +1,41 @@
 import { useRef, useState, useEffect } from "react";
 
 const AudioVisualizer = ({ onStart, audio }) => {
-  const [bgVolume, setBgVolume] = useState(35); // 👈 mặc định âm lượng nhạc nền
-  const [isBGPlaying, setIsBGPlaying] = useState(false);
   const [countdown, setCountdown] = useState(null);
+  const [hasStarted, setHasStarted] = useState(false);
 
-  const outroRef = useRef(null);
-  const outroSourceRef = useRef(null);
   const canvasRef = useRef(null);
   const introRef = useRef(null);
-  const bgMusicRef = useRef(null);
 
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const introSourceRef = useRef(null);
-  const bgMusicSourceRef = useRef(null);
   const animationIdRef = useRef(null);
 
-  const handlePlayOutro = () => {
-    const audioCtx = audioCtxRef.current;
-    const outroEl = outroRef.current;
+  // Handle canvas resize
+  useEffect(() => {
+    const handleResize = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    if (!audioCtx || !analyserRef.current || !outroEl) {
-      alert("🎧 Hãy nhấn 'Bắt đầu Podcast' trước!");
-      return;
-    }
+      const container = canvas.parentElement;
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
 
-    if (!outroSourceRef.current) {
-      outroSourceRef.current = audioCtx.createMediaElementSource(outroEl);
-      outroSourceRef.current.connect(analyserRef.current);
-      outroSourceRef.current.connect(audioCtx.destination);
-    }
+      // Use parent dimensions, maintaining aspect ratio
+      const aspectRatio = 6; // 600/100 = 6:1 aspect ratio
+      const maxWidth = Math.min(containerWidth, containerHeight * aspectRatio);
+      const newWidth = maxWidth;
+      const newHeight = newWidth / aspectRatio;
 
-    outroEl.currentTime = 0;
-    outroEl.play();
-  };
+      canvas.style.width = `${newWidth}px`;
+      canvas.style.height = `${newHeight}px`;
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleCountdownStart = () => {
     let counter = 3;
@@ -45,6 +46,7 @@ const AudioVisualizer = ({ onStart, audio }) => {
       if (counter === 0) {
         clearInterval(interval);
         setCountdown(null);
+        setHasStarted(true);
         handleStart(); // 🔥 bắt đầu thật sự
         onStart(); // 🔥 gọi hàm onStart từ App.jsx
       } else {
@@ -77,31 +79,13 @@ const AudioVisualizer = ({ onStart, audio }) => {
     }
     const analyser = analyserRef.current;
 
-    // ✅ Mic
-    const micStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    const micSource = audioCtx.createMediaStreamSource(micStream);
-
-    // ✅ Merger
-    const merger = audioCtx.createChannelMerger(3);
-    micSource.connect(merger, 0, 0);
-
     // ✅ Intro source
     if (!introSourceRef.current) {
       introSourceRef.current = audioCtx.createMediaElementSource(introEl);
     }
     const introSource = introSourceRef.current;
-    introSource.connect(merger, 0, 0);
+    introSource.connect(analyser);
     introSource.connect(audioCtx.destination);
-
-    // ✅ Background music source nếu đang tồn tại
-    if (bgMusicRef.current && bgMusicSourceRef.current) {
-      bgMusicSourceRef.current.connect(merger, 0, 0);
-      bgMusicSourceRef.current.connect(audioCtx.destination);
-    }
-
-    merger.connect(analyser);
 
     // 🔊 Phát intro
     await introEl.play();
@@ -115,10 +99,30 @@ const AudioVisualizer = ({ onStart, audio }) => {
     const draw = () => {
       animationIdRef.current = requestAnimationFrame(draw);
       analyser.getByteFrequencyData(dataArray);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const WIDTH = canvas.width;
-      const HEIGHT = canvas.height;
+      // Get dimensions from parent container
+      const container = canvas.parentElement;
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+
+      // Calculate canvas size maintaining aspect ratio
+      const aspectRatio = 6;
+      const maxWidth = Math.min(containerWidth, containerHeight * aspectRatio);
+      const WIDTH = maxWidth;
+      const HEIGHT = maxWidth / aspectRatio;
+
+      // Set canvas internal resolution to match display size với độ phân giải cao hơn
+      const dpr = Math.max(window.devicePixelRatio || 1, 2); // Tối thiểu 2x để nét hơn
+      canvas.width = WIDTH * dpr;
+      canvas.height = HEIGHT * dpr;
+      ctx.scale(dpr, dpr);
+
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      // Cải thiện chất lượng rendering
+      ctx.imageSmoothingEnabled = false; // Tắt smoothing để bars nét hơn
+      ctx.lineCap = "square"; // Làm cho bars vuông vức hơn
+
       const centerX = WIDTH / 2;
       const centerY = HEIGHT / 2;
       const barCount = dataArray.length;
@@ -166,131 +170,40 @@ const AudioVisualizer = ({ onStart, audio }) => {
     draw();
   };
 
-  const bgMusicGainRef = useRef(null); // 👈 thêm dòng này
-
-  const handlePlayBackgroundMusic = () => {
-    const audioCtx = audioCtxRef.current;
-    const bgEl = bgMusicRef.current;
-
-    if (!audioCtx || !analyserRef.current) {
-      alert("🎧 Hãy nhấn 'Bắt đầu Podcast' trước!");
-      return;
-    }
-
-    // Tính lại volume thực tế từ phần trăm
-    const realVolume = (bgVolume / 100) * 0.1;
-
-    // Nếu chưa kết nối lần nào
-    if (!bgMusicSourceRef.current) {
-      bgMusicSourceRef.current = audioCtx.createMediaElementSource(bgEl);
-
-      // 🔉 Tạo gain node cho nhạc nền
-      bgMusicGainRef.current = audioCtx.createGain();
-      bgMusicGainRef.current.gain.value = realVolume;
-
-      // Kết nối vào analyser + destination
-      bgMusicSourceRef.current.connect(bgMusicGainRef.current);
-      bgMusicGainRef.current.connect(analyserRef.current);
-      bgMusicGainRef.current.connect(audioCtx.destination);
-    } else {
-      // Nếu đã kết nối → chỉ cập nhật lại volume nếu có thay đổi
-      bgMusicGainRef.current.gain.value = realVolume;
-    }
-
-    bgEl.play();
-    setIsBGPlaying(true);
-  };
-
-  const handleVolumeChange = (e) => {
-    const value = parseFloat(e.target.value); // 0 → 100
-    setBgVolume(value);
-
-    const realVolume = (value / 100) * 0.1; // 🎯 scale lại về 0 → 0.1
-
-    if (bgMusicGainRef.current) {
-      bgMusicGainRef.current.gain.value = realVolume;
-    }
-  };
-
-  const handleTogglePauseBG = () => {
-    if (!audioCtxRef.current || !analyserRef.current) {
-      alert("🎧 Hãy nhấn 'Bắt đầu Podcast' trước!");
-      return;
-    }
-    const bgEl = bgMusicRef.current;
-    if (!bgEl) return;
-
-    if (isBGPlaying) {
-      bgEl.pause();
-      setIsBGPlaying(false);
-    } else {
-      bgEl.play();
-      setIsBGPlaying(true);
-    }
-  };
-
-  const handleStopBackgroundMusic = () => {
-    const bgEl = bgMusicRef.current;
-    if (!bgEl) return;
-
-    bgEl.pause();
-    bgEl.currentTime = 0;
-    setIsBGPlaying(false); // ✅ cập nhật trạng thái
-  };
-
   return (
     <>
-      {countdown !== null && (
-        <span
-          style={{
-            fontSize: 20,
-            fontWeight: "bold",
-            color: "#e74c3c",
-          }}
-        >
-          {countdown}
-        </span>
-      )}
-      <button onClick={handleCountdownStart} style={{ marginRight: 10 }}>
-        🎧 Bắt đầu Podcast
-      </button>
-      <button onClick={handlePlayOutro}>🎬 Phát outro</button>
-      <button onClick={handlePlayBackgroundMusic} style={{ marginRight: 10 }}>
-        🎵 Phát nhạc nền
-      </button>
-      <button onClick={handleTogglePauseBG} style={{ marginRight: 10 }}>
-        {isBGPlaying ? "⏸ Tạm dừng nhạc nền" : "▶️ Tiếp tục nhạc nền"}
-      </button>
-      <button onClick={handleStopBackgroundMusic}>⏹ Dừng nhạc nền</button>
-      <div style={{ marginTop: 16 }}>
-        <label>
-          🎚 Âm lượng nhạc nền:
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value={bgVolume}
-            onChange={handleVolumeChange}
-          />
-          <span style={{ marginLeft: 8 }}>{bgVolume}%</span>
-        </label>
+      <div style={{ position: "relative", top: -200, right: -100 }}>
+        {countdown !== null && (
+          <span
+            style={{
+              fontSize: 20,
+              fontWeight: "bold",
+              color: "#e74c3c",
+              position: "absolute",
+              top: 0,
+              right: 0,
+            }}
+          >
+            {countdown}
+          </span>
+        )}
+        {!hasStarted && (
+          <button
+            onClick={handleCountdownStart}
+            style={{
+              marginRight: 10,
+              position: "absolute",
+              top: 0,
+              width: 180,
+            }}
+          >
+            🎧 Bắt đầu Podcast
+          </button>
+        )}
       </div>
-      <audio
-        ref={outroRef}
-        src="/outro.mp3"
-        preload="auto"
-        style={{ display: "none" }}
-      />
       <audio
         ref={introRef}
         src={audio}
-        preload="auto"
-        style={{ display: "none" }}
-      />
-      <audio
-        ref={bgMusicRef}
-        src="/bg-music.mp3"
         preload="auto"
         style={{ display: "none" }}
       />
@@ -302,6 +215,8 @@ const AudioVisualizer = ({ onStart, audio }) => {
           backgroundColor: "transparent",
           display: "block",
           margin: "50px auto",
+          maxWidth: "100%",
+          height: "auto",
         }}
       />
     </>
