@@ -1,0 +1,25 @@
+{
+  "audioFile": "tap16.mp3",
+  "generatedAt": "2024-01-15T10:30:00.000Z",
+  "language": "vi",
+  "subtitles": [
+    {
+      "index": 1,
+      "startTime": 0.0,
+      "endTime": 3.5,
+      "text": "Xin chào các bạn, hôm nay chúng ta sẽ nói về sức mạnh của thói quen."
+    },
+    {
+      "index": 2,
+      "startTime": 3.5,
+      "endTime": 7.2,
+      "text": "Thói quen hàng ngày có thể thay đổi hoàn toàn cuộc sống của chúng ta."
+    },
+    {
+      "index": 3,
+      "startTime": 7.2,
+      "endTime": 12.8,
+      "text": "Hãy cùng tìm hiểu tại sao những thói quen nhỏ lại có tác động lớn đến vậy."
+    }
+  ]
+}
